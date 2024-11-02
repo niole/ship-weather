@@ -23,7 +23,6 @@ For each day and year, let user pick a year and show predictions.
 
 # UX
 
-- Add year dropdown for easy navigation.
 - Integrate some real data
 - let user pick a range of dates by clicking and dragging on the calendar and getting an alert with the date range
 - make UI look nice

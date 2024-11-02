@@ -77,10 +77,10 @@ function fetchPredictions(
       case 'day':
         return [activeStartDate];
       case 'month':
-      const currMs = activeStartDate.getTime();
+        const currMs = activeStartDate.getTime();
         // in prevDays, skips the 0 offset so as to not duplicate the current day
-        const prevDays = Array(31).fill(0).map((_, i) => new Date(currMs - ((i+1) * msInDay)));
-        const nextDays = Array(31).fill(0).map((_, i) => new Date(currMs + (i * msInDay)));
+        const prevDays = Array(40).fill(0).map((_, i) => new Date(currMs - ((i+1) * msInDay)));
+        const nextDays = Array(40).fill(0).map((_, i) => new Date(currMs + (i * msInDay)));
         return [...prevDays, ...nextDays];
       case 'year':
         // TODO year view will only show months, is it necessary to get all days?
@@ -120,7 +120,17 @@ export default function Home() {
         <RangeControls label="Wave Height" range={waveHeightRange} setRange={setWaveHeightRange} />
         <RangeControls label="Wave Period" range={wavePeriodRange} setRange={setWavePeriodRange} />
       </div>
+      <select
+        value={calendarView.activeStartDate.getFullYear()}
+        onChange={(e) => setCalendarView({
+          view: calendarView.view, 
+          activeStartDate: new Date(Number(e.target.value), calendarView.activeStartDate.getMonth(), calendarView.activeStartDate.getDate())})}
+      >
+        <option value="2020">2020</option>
+        <option value="2024">2024</option>
+      </select>
       <Calendar
+        activeStartDate={calendarView.activeStartDate}
         onActiveStartDateChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
         onViewChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
         tileClassName={({ date }) => {
