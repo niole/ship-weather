@@ -18,13 +18,17 @@ WDSP * APD <= 25'*.3048 = 7.62m
 
 I think I don't know the relationship between wave height, distance, that works for his boat.
 
+For each day and year, let user pick a year and show predictions.
+
 
 # UX
 
-Calculate daily historical data for whether or not the waves will work for his boat.
-render as a heat map in a calendar view
-let him select a range of dates and get the date range out as text
+- Add year dropdown for easy navigation.
+- Integrate some real data
+- let user pick a range of dates by clicking and dragging on the calendar and getting an alert with the date range
+- make UI look nice
 
-provide a slider for average and wave height and then color the calendar based on that
+# Questions
 
-later, we can generalize it. maybe based on boat length and weight we can give suggestions.
+- what are the appropriate whts and wpds for different boats? Are multiple distinct ranges possible?
+- can we recommend previous years to examine?
