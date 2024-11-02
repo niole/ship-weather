@@ -101,10 +101,47 @@ function fetchPredictions(
 
 }
 
+function RangeControls({ range, setRange, label}: { label: string,range: [number, number], setRange: (range: [number, number]) => void }) {
+  const [min, max] = range;
+  return (
+      <div className="mb-6 flex flex-1 flex-col ml-8">
+        <div>
+          {label}
+        </div>
+        <div className="flex flex-row">
+          <div className="flex-1">
+            <label className="block text-sm font-medium mb-2">
+              Min: {min}
+            </label>
+            <input type="range"
+              min="4"
+              max="20"
+              value={min}
+              onChange={(e) => setRange([Number(e.target.value), range[1]])}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
+          <div className="flex-1 ml-4">
+            <label className="block text-sm font-medium mb-2">
+              Max: {max}
+            </label>
+            <input
+              type="range"
+              min="4"
+              max="20"
+              value={max}
+              onChange={(e) => setRange([range[0], Number(e.target.value)])}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
+        </div>
+      </div>
+  );
+}
+
 export default function Home() {
   const [waveHeightRange, setWaveHeightRange] = useState<[number, number]>([3, 10]); // Default 3-10 feet
   const [wavePeriodRange, setWavePeriodRange] = useState<[number, number]>([1, 8]); // Default 8 seconds
-  const [minWavePeriod, maxWavePeriod] = wavePeriodRange;
   const [predictionMap, setDayPredictions] = useState<Record<string, number>>({});
   const [calendarView, setCalendarView] = useState<{ view: string, activeStartDate: Date }>({view: 'month', activeStartDate: new Date()});
 
@@ -115,61 +152,9 @@ export default function Home() {
 
   return (
     <div className="p-4">
-      <div className="mb-6 flex">
-        <div className="flex-1">
-          <label className="block text-sm font-medium mb-2">
-            Min Wave Height: {waveHeightRange[0]} ft
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="20"
-            value={waveHeightRange[0]}
-            onChange={(e) => setWaveHeightRange([Number(e.target.value), waveHeightRange[1]])}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-          />
-        </div>
-        <div className="flex-1">
-          <label className="block text-sm font-medium mb-2">
-            Max Wave Height: {waveHeightRange[1]} ft
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="20"
-            value={waveHeightRange[1]}
-            onChange={(e) => setWaveHeightRange([waveHeightRange[0], Number(e.target.value)])}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-          />
-        </div>
-      </div>
-
-      <div className="mb-6 flex">
-        <div className="flex-1">
-          <label className="block text-sm font-medium mb-2">
-            Min Wave Period: {minWavePeriod} seconds
-          </label>
-          <input type="range"
-            min="4"
-            max="20"
-            value={minWavePeriod}
-            onChange={(e) => setWavePeriodRange([Number(e.target.value), wavePeriodRange[1]])}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-          />
-        </div>
-        <div className="flex-1 ml-4">
-          <label className="block text-sm font-medium mb-2">
-            Wave Period: {maxWavePeriod} seconds
-          </label>
-          <input
-            type="range"
-            min="4"
-            max="20"
-            value={maxWavePeriod}
-            onChange={(e) => setWavePeriodRange([wavePeriodRange[0], Number(e.target.value)])}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-          />
-        </div>
+      <div className="flex">
+        <RangeControls label="Wave Height" range={waveHeightRange} setRange={setWaveHeightRange} />
+        <RangeControls label="Wave Period" range={wavePeriodRange} setRange={setWavePeriodRange} />
       </div>
       <Calendar
         onActiveStartDateChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
