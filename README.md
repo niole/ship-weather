@@ -1,36 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Plan
 
-## Getting Started
+measurement descriptions for noaa data https://www.ndbc.noaa.gov/faq/measdes.shtml
+la push fishing area: https://wdfw.maps.arcgis.com/home/webmap/viewer.html?webmap=f415cd6cb2f14a8ab14d9c0bcd2cb429&extent=-126,47.53817114,-124.320018352,48.164183106
 
-First, run the development server:
+lamont cares about yoy data. certain wave height to wave distance ratios don't work for his boat.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+based on wave height and average wave period, figure out if the waves will work for his boat.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+his boat is 25' long and 12k lbs
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+wavelength = speed of wave / frequency
+wavelength = WDSP(m/s) / (1 wave/APD (s)) 
+wavelength = WDSP m/s * APD (s/wave) = m/wave  = WDSP * APD
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+waves will work for his boat if the wavelength is <= his boat length
+WDSP * APD <= 25'*.3048 = 7.62m
 
-## Learn More
+I think I don't know the relationship between wave height, distance, that works for his boat.
 
-To learn more about Next.js, take a look at the following resources:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# UX
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Calculate daily historical data for whether or not the waves will work for his boat.
+render as a heat map in a calendar view
+let him select a range of dates and get the date range out as text
 
-## Deploy on Vercel
+provide a slider for average and wave height and then color the calendar based on that
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+later, we can generalize it. maybe based on boat length and weight we can give suggestions.
