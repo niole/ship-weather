@@ -5,38 +5,16 @@ import RangeControls from "@/lib/components/RangeControls";
 import { type DayPrediction } from "@/lib/types";
 import 'react-calendar/dist/Calendar.css';
 
-function getWaveHeightFt(windSpeedKts: number): number {
-  // based off of https://www.wpc.ncep.noaa.gov/html/beaufort.shtml
-  if (windSpeedKts <= 3) {
-    return 0.25;
-  }
+const CURR_YEAR = new Date().getFullYear();
 
-  if (windSpeedKts <= 6) {
-    return 1;
-  }
+const WHT_UB = 20;
+const WPD_UB = 20;
 
-  if (windSpeedKts <= 10) {
-    return 3;
-  }
-
-  if (windSpeedKts <= 16) {
-    return 5;
-  }
-
-  if (windSpeedKts <= 21) {
-    return 8;
-  }
-
-  if (windSpeedKts <= 27) {
-    return 13;
-  }
-
-  // near gale
-  if (windSpeedKts <= 33) {
-    return 19;
-  }
-
-  return Infinity;
+async function getDayPredictionsInRange(startDate: Date, endDate: Date, stationIds: string[]): Promise<DayPrediction[]> {
+  // TODO what timezone does noaa use for dates?
+  const response = await fetch(`/api?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}&stationIds=${stationIds.join(',')}`);
+  const data = await response.json();
+  return data.data.map((d: DayPrediction) => ({...d, date: new Date(d.date)}));
 }
 
 function getDateKey(date: Date): string {
@@ -65,7 +43,6 @@ function getScore(
   const {
     waveHeight: predictedWaveHeight,
     wavePeriod,
-    windSpeedKts,
   } = prediction;
 
   const minOkWht = acceptedMinWaveHeight * 0.9;
@@ -73,7 +50,7 @@ function getScore(
   const minOkWpd = acceptedMinWavePeriod * 0.9;
   const maxOkWpd = acceptedMaxWavePeriod * 1.1;
 
-  const waveHeight = predictedWaveHeight ?? getWaveHeightFt(windSpeedKts);
+  const waveHeight = predictedWaveHeight;
   const waveHeightGood = waveHeight >= acceptedMinWaveHeight && waveHeight <= acceptedMaxWaveHeight;
   const wavePeriodGood = wavePeriod ? wavePeriod >= acceptedMinWavePeriod && wavePeriod <= acceptedMaxWavePeriod : true;
 
@@ -97,65 +74,71 @@ function getScore(
 // 0: bad, 1: ok, 2: good
 type PredictionMap = Record<string, number>;
 
+function makePredictionMap(predictions: DayPrediction[], waveHtRange: [number, number], wavePdRange: [number, number]): PredictionMap {
+  return predictions.reduce((acc, prediction) => ({...acc, [getDateKey(prediction.date)]: getScore(
+    prediction,
+    waveHtRange[0],
+    waveHtRange[1],
+    wavePdRange[0],
+    wavePdRange[1],
+  )}), {});
+}
+
 // TODO debounce all range changes
-function fetchPredictions(
+async function fetchPredictions(
   view: string | 'month' | 'year' | 'day',
   activeStartDate: Date,
-  waveHtRange: [number, number],
-  wavePdRange: [number, number],
-):  PredictionMap {
+): Promise<DayPrediction[]> {
   // if day, fetch single day
   // if month, fetch month before and after
   // if year, fetch all days in year
   const msInDay = 24 * 60 * 60 * 1000;
 
-  const dates: Date[] = (() => {
-    switch (view) {
-      case 'day':
-        return [activeStartDate];
-      case 'month':
-        const currMs = activeStartDate.getTime();
-        // in prevDays, skips the 0 offset so as to not duplicate the current day
-        const prevDays = Array(40).fill(0).map((_, i) => new Date(currMs - ((i+1) * msInDay)));
-        const nextDays = Array(40).fill(0).map((_, i) => new Date(currMs + (i * msInDay)));
-        return [...prevDays, ...nextDays];
-      case 'year':
-        // TODO year view will only show months, is it necessary to get all days?
-        const year = activeStartDate.getFullYear();
-        const startDateMs = new Date(year, 1, 0).getTime();
-        return Array(365).fill(0).map((_, i) => new Date(startDateMs + (i * msInDay)));
-      default:
-          return [];
-    }})();
+  const stationIds = ['lapw1', 'desw1'];
 
-    return dates.reduce((acc, date) => ({...acc, [getDateKey(date)]: getScore(
-        { date, windSpeedKts: Math.round(Math.random() * 20), waveHeight: Math.round(Math.random() * 10), wavePeriod: Math.round(Math.random() * 10) },
-        waveHtRange[0],
-        waveHtRange[1],
-        wavePdRange[0],
-        wavePdRange[1],
-      )
-    }), {});
-
+  switch (view) {
+    case 'day':
+      return getDayPredictionsInRange(activeStartDate, activeStartDate, stationIds);
+    case 'month':
+      const currMs = activeStartDate.getTime();
+      const monthStart = new Date(currMs - (40*msInDay));
+      const monthEnd = new Date(currMs + (40*msInDay));
+      return getDayPredictionsInRange(monthStart, monthEnd, stationIds);
+    case 'year':
+      // TODO year view will only show months, is it necessary to get all days?
+      const year = activeStartDate.getFullYear();
+      const startDateMs = new Date(year, 1, 0).getTime();
+      const endDate = new Date(startDateMs + (365 * msInDay));
+      return getDayPredictionsInRange(new Date(startDateMs), endDate, stationIds);
+    default:
+        return [];
+  }
 }
 
-
 export default function Home() {
-  const [waveHeightRange, setWaveHeightRange] = useState<[number, number]>([0, 8]);
-  const [wavePeriodRange, setWavePeriodRange] = useState<[number, number]>([0, 3]);
-  const [predictionMap, setDayPredictions] = useState<Record<string, number>>({});
+  const [waveHeightRange, setWaveHeightRange] = useState<[number, number]>([0, WHT_UB]);
+  const [wavePeriodRange, setWavePeriodRange] = useState<[number, number]>([0, WPD_UB]);
+  const [predictions, setDayPredictions] = useState<DayPrediction[]>([]);
+  const [predictionMap, setDayPredictionsMap] = useState<Record<string, number>>({});
   const [calendarView, setCalendarView] = useState<{ view: string, activeStartDate: Date }>({view: 'month', activeStartDate: new Date()});
 
   useEffect(() => {
-    const predictionMap = fetchPredictions(calendarView.view, calendarView.activeStartDate, waveHeightRange, wavePeriodRange);
-    setDayPredictions(predictionMap);
-  }, [waveHeightRange, wavePeriodRange, calendarView]);
+    fetchPredictions(calendarView.view, calendarView.activeStartDate)
+    .then(setDayPredictions)
+    .catch(e => {
+      console.error('Error fetching predictions while updating calendar view', e);
+    });
+  }, [calendarView]);
+
+  useEffect(() => {
+    setDayPredictionsMap(makePredictionMap(predictions, waveHeightRange, wavePeriodRange));
+  }, [waveHeightRange, wavePeriodRange, predictions]);
 
   return (
     <div className="p-4">
       <div className="flex">
-        <RangeControls label="Wave Height Feet" range={waveHeightRange} setRange={setWaveHeightRange} lowerBound={0} upperBound={20} />
-        <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={20} />
+        <RangeControls label="Wave Height Feet" range={waveHeightRange} setRange={setWaveHeightRange} lowerBound={0} upperBound={WHT_UB} />
+        <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={WPD_UB} />
       </div>
       <select
         value={calendarView.activeStartDate.getFullYear()}
@@ -163,8 +146,9 @@ export default function Home() {
           view: calendarView.view, 
           activeStartDate: new Date(Number(e.target.value), calendarView.activeStartDate.getMonth(), calendarView.activeStartDate.getDate())})}
       >
-        <option value="2020">2020</option>
-        <option value="2024">2024</option>
+        {Array(60).fill(0).map((_, i) => 
+          <option key={CURR_YEAR - i} value={CURR_YEAR - i}>{CURR_YEAR - i}</option>
+        )}
       </select>
       <Calendar
         activeStartDate={calendarView.activeStartDate}
