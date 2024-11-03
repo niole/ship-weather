@@ -1,4 +1,11 @@
-export default function RangeControls({ range, setRange, label}: { label: string,range: [number, number], setRange: (range: [number, number]) => void }) {
+type Props = {
+    label: string,
+    range: [number, number],
+    setRange: (range: [number, number]) => void,
+    lowerBound?: number,
+    upperBound?: number
+};
+export default function RangeControls({ range, setRange, label, lowerBound = 0, upperBound = 10}: Props) {
   const [min, max] = range;
   return (
       <div className="mb-6 flex flex-1 flex-col ml-8">
@@ -11,8 +18,8 @@ export default function RangeControls({ range, setRange, label}: { label: string
               Min: {min}
             </label>
             <input type="range"
-              min="4"
-              max="20"
+              min={lowerBound}
+              max={upperBound}
               value={min}
               onChange={(e) => setRange([Number(e.target.value), range[1]])}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
@@ -24,8 +31,8 @@ export default function RangeControls({ range, setRange, label}: { label: string
             </label>
             <input
               type="range"
-              min="4"
-              max="20"
+              min={lowerBound}
+              max={upperBound}
               value={max}
               onChange={(e) => setRange([range[0], Number(e.target.value)])}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"

@@ -20,6 +20,14 @@ I think I don't know the relationship between wave height, distance, that works 
 
 For each day and year, let user pick a year and show predictions.
 
+The point of this app is to help a boat charter captain pick a good day to take people out. It's probably better to lean towards 'pleasure cruise' type weather.
+Some boaters don't have a good sense of what weather conditions their boat can handle.
+
+often we don't have wht or wpd data. We always have wind speed, air pressure, temperature, humidity
+- low pressure == stormy
+- warm sea temp / higher humidity == rainy
+- high wind speed == stormy
+- high temp diff between air and sea == unstable ocean
 
 # UX
 
@@ -31,3 +39,4 @@ For each day and year, let user pick a year and show predictions.
 
 - what are the appropriate whts and wpds for different boats? Are multiple distinct ranges possible?
 - can we recommend previous years to examine?
+- what ranges for basic meteorological data indicate calm vs stormy conditions?
