@@ -35,6 +35,8 @@ often we don't have wht or wpd data. We always have wind speed, air pressure, te
 - why are some dates not colored in?
 - let user pick a range of dates by clicking and dragging on the calendar and getting an alert with the date range
 - make UI look nice
+- make fetch util that handles 500 errors
+- this row breaks the importer: 2023 01 24 01 00 204  6.3  6.7 99.00 99.00 99.00 999 1032.7 999.0 999.0 999.0 99.0 99.00, it thinks that the year is 2025. There is some data in desw1 which breaks the importer and we should find out what it is so we can fix the importing logic.
 
 # Questions
 
@@ -54,4 +56,10 @@ npx ts-node
 let c = require('./getData.ts');
 // station ID is lower case
 c.saveDataDb(2020, 2024, 'lapw1');
+```
+
+# Update prisma schema
+
+```sh
+npx prisma db push
 ```

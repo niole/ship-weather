@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Calendar from 'react-calendar';
 import RangeControls from "@/lib/components/RangeControls";
+import YearSelector from "@/lib/components/YearSelector";
 import { type DayPrediction } from "@/lib/types";
 import 'react-calendar/dist/Calendar.css';
 
@@ -9,6 +10,31 @@ const CURR_YEAR = new Date().getFullYear();
 
 const WHT_UB = 20;
 const WPD_UB = 20;
+
+const handleImportStationData = (importYearRange: [number, number], stationIdToImport?: string) => () => {
+  const [startYear, endYear] = importYearRange;
+  if (endYear < startYear) {
+    alert('Can\'t complete import. End year must be greater than start year');
+    return;
+  }
+
+  if (stationIdToImport) {
+    console.log('Importing station data for stationId: ', stationIdToImport);
+    fetch(`/api/import?startYear=${startYear}&endYear=${endYear}&stationId=${stationIdToImport}`)
+    .then(async response => {
+      if (response.ok) {
+        alert(`Successfully imported data for station ID ${stationIdToImport} for year range ${startYear}-${endYear}`);
+      } else {
+        const errorBody = await response.json();
+        throw new Error(`${response.statusText}: ${errorBody.error}`);
+      }
+    })
+    .catch(e => {
+      alert(`Error importing data for station ID ${stationIdToImport} for year range ${startYear}-${endYear}: ${e}`);
+    });
+  }
+}
+
 
 function debounce(fn: (e: any) => void, ms: number = 500) {
   let timeout: NodeJS.Timeout;
@@ -129,6 +155,8 @@ export default function Home() {
   const [predictionMap, setDayPredictionsMap] = useState<Record<string, number>>({});
   const [calendarView, setCalendarView] = useState<{ view: string, activeStartDate: Date }>({view: 'month', activeStartDate: new Date()});
   const [stationIds, setStationIds] = useState<string[]>(['lapw1', 'desw1']);
+  const [stationIdToImport, setImportStationId] = useState<string | undefined>();
+  const [importYearRange, setImportYearRange] = useState<[number, number]>([CURR_YEAR, CURR_YEAR]);
 
   useEffect(() => {
     fetchPredictions(calendarView.view, calendarView.activeStartDate, stationIds)
@@ -151,25 +179,19 @@ export default function Home() {
         <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={WPD_UB} />
       </div>
       <div className="mb-6 flex">
-        <div className="flex-1">
-          <div>
-            Year:
-          </div>
-          <select
-            value={calendarView.activeStartDate.getFullYear()}
-            onChange={(e) => setCalendarView({
+        <YearSelector
+          label="Filter By Year:"
+          value={calendarView.activeStartDate.getFullYear()}
+          onChange={year => setCalendarView({
             view: calendarView.view, 
-            activeStartDate: new Date(Number(e.target.value), calendarView.activeStartDate.getMonth(), calendarView.activeStartDate.getDate())})}
-          >
-          {Array(60).fill(0).map((_, i) => 
-            <option key={CURR_YEAR - i} value={CURR_YEAR - i}>{CURR_YEAR - i}</option>
-            )}
-          </select>
-        </div>
+            activeStartDate: new Date(year, calendarView.activeStartDate.getMonth(), calendarView.activeStartDate.getDate())
+          })}
+        />
         <div className="flex-1">
           <div>
-            Station: <a className="text-blue-500" href="https://www.ndbc.noaa.gov/obs.shtml" target="_blank">National Data Buoy Center Station Map</a>
+            Station:
           </div>
+          <a className="block text-blue-500" href="https://www.ndbc.noaa.gov/obs.shtml" target="_blank">National Data Buoy Center Station Map</a>
           <input
             className="border border-gray-300 rounded-md p-1"
             type="text"
@@ -177,8 +199,40 @@ export default function Home() {
             onChange={setStationIdHandler}
           />
         </div>
+        <div className="flex-1">
+          <div>
+            Import Station Data:
+          </div>
+          <div className="flex">
+            <YearSelector
+              label="Start Year:"
+              value={importYearRange[0]}
+              onChange={year => setImportYearRange([year, importYearRange[1]])}
+            />
+            <YearSelector
+              label="End Year:"
+              value={importYearRange[1]}
+              onChange={year => setImportYearRange([importYearRange[0], year])}
+            />
+          </div>
+          <input
+            className="border border-gray-300 rounded-md p-1"
+            type="text"
+            placeholder="Station ID"
+            onChange={e => setImportStationId(e.target.value)}
+          />
+          <input
+            className="border border-gray-300 rounded-md p-1"
+            type="submit"
+            onClick={handleImportStationData(importYearRange, stationIdToImport)}
+          />
+        </div>
       </div>
       <Calendar
+        onClickDay={(date) => {
+          const key = getDateKey(date);
+          console.log(predictions.find(p => getDateKey(p.date) === key));
+        }}
         activeStartDate={calendarView.activeStartDate}
         onActiveStartDateChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
         onViewChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}

@@ -52,6 +52,11 @@ function parseNoaaFile(stationId: string, csvString: string): typeof WeatherSens
       0
     );
 
+    if (date.getFullYear() === 2025 ) {
+      console.log(r);
+      throw new Error('A data was found for 2025');
+    }
+
     // optional values
     const windSpeedMs = items[headerMap['WSPD']];
     const airTemperatureC = items[headerMap['ATMP']];
@@ -96,7 +101,7 @@ async function saveDataDb(yearStart: number, yearEnd: number | null = null, buoy
 
       // TODO do bulk calls someday
       await prisma.$transaction(
-        samples.forEach((sample) =>
+        samples.map((sample) =>
           prisma.weatherSensorSample.upsert({
             where: {
               date_stationId: {
