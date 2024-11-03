@@ -10,6 +10,14 @@ const CURR_YEAR = new Date().getFullYear();
 const WHT_UB = 20;
 const WPD_UB = 20;
 
+function debounce(fn: (e: any) => void, ms: number = 500) {
+  let timeout: NodeJS.Timeout;
+  return (e: any) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fn(e), ms);
+  };
+}
+
 async function getDayPredictionsInRange(startDate: Date, endDate: Date, stationIds: string[]): Promise<DayPrediction[]> {
   // TODO what timezone does noaa use for dates?
   const response = await fetch(`/api?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}&stationIds=${stationIds.join(',')}`);
@@ -50,7 +58,7 @@ function getScore(
   const minOkWpd = acceptedMinWavePeriod * 0.9;
   const maxOkWpd = acceptedMaxWavePeriod * 1.1;
 
-  const waveHeight = predictedWaveHeight;
+  const waveHeight = predictedWaveHeight!;
   const waveHeightGood = waveHeight >= acceptedMinWaveHeight && waveHeight <= acceptedMaxWaveHeight;
   const wavePeriodGood = wavePeriod ? wavePeriod >= acceptedMinWavePeriod && wavePeriod <= acceptedMaxWavePeriod : true;
 
@@ -88,13 +96,12 @@ function makePredictionMap(predictions: DayPrediction[], waveHtRange: [number, n
 async function fetchPredictions(
   view: string | 'month' | 'year' | 'day',
   activeStartDate: Date,
+  stationIds: string[],
 ): Promise<DayPrediction[]> {
   // if day, fetch single day
   // if month, fetch month before and after
   // if year, fetch all days in year
   const msInDay = 24 * 60 * 60 * 1000;
-
-  const stationIds = ['lapw1', 'desw1'];
 
   switch (view) {
     case 'day':
@@ -121,18 +128,21 @@ export default function Home() {
   const [predictions, setDayPredictions] = useState<DayPrediction[]>([]);
   const [predictionMap, setDayPredictionsMap] = useState<Record<string, number>>({});
   const [calendarView, setCalendarView] = useState<{ view: string, activeStartDate: Date }>({view: 'month', activeStartDate: new Date()});
+  const [stationIds, setStationIds] = useState<string[]>(['lapw1', 'desw1']);
 
   useEffect(() => {
-    fetchPredictions(calendarView.view, calendarView.activeStartDate)
+    fetchPredictions(calendarView.view, calendarView.activeStartDate, stationIds)
     .then(setDayPredictions)
     .catch(e => {
       console.error('Error fetching predictions while updating calendar view', e);
     });
-  }, [calendarView]);
+  }, [calendarView, stationIds]);
 
   useEffect(() => {
     setDayPredictionsMap(makePredictionMap(predictions, waveHeightRange, wavePeriodRange));
   }, [waveHeightRange, wavePeriodRange, predictions]);
+
+  const setStationIdHandler = debounce((e: any) => setStationIds(e.target.value.split(',').map((s: string) => s.trim())));
 
   return (
     <div className="p-4">
@@ -140,16 +150,34 @@ export default function Home() {
         <RangeControls label="Wave Height Feet" range={waveHeightRange} setRange={setWaveHeightRange} lowerBound={0} upperBound={WHT_UB} />
         <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={WPD_UB} />
       </div>
-      <select
-        value={calendarView.activeStartDate.getFullYear()}
-        onChange={(e) => setCalendarView({
-          view: calendarView.view, 
-          activeStartDate: new Date(Number(e.target.value), calendarView.activeStartDate.getMonth(), calendarView.activeStartDate.getDate())})}
-      >
-        {Array(60).fill(0).map((_, i) => 
-          <option key={CURR_YEAR - i} value={CURR_YEAR - i}>{CURR_YEAR - i}</option>
-        )}
-      </select>
+      <div className="mb-6 flex">
+        <div className="flex-1">
+          <div>
+            Year:
+          </div>
+          <select
+            value={calendarView.activeStartDate.getFullYear()}
+            onChange={(e) => setCalendarView({
+            view: calendarView.view, 
+            activeStartDate: new Date(Number(e.target.value), calendarView.activeStartDate.getMonth(), calendarView.activeStartDate.getDate())})}
+          >
+          {Array(60).fill(0).map((_, i) => 
+            <option key={CURR_YEAR - i} value={CURR_YEAR - i}>{CURR_YEAR - i}</option>
+            )}
+          </select>
+        </div>
+        <div className="flex-1">
+          <div>
+            Station: <a className="text-blue-500" href="https://www.ndbc.noaa.gov/obs.shtml" target="_blank">National Data Buoy Center Station Map</a>
+          </div>
+          <input
+            className="border border-gray-300 rounded-md p-1"
+            type="text"
+            defaultValue={stationIds.join(',')}
+            onChange={setStationIdHandler}
+          />
+        </div>
+      </div>
       <Calendar
         activeStartDate={calendarView.activeStartDate}
         onActiveStartDateChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}

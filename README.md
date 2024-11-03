@@ -32,9 +32,7 @@ often we don't have wht or wpd data. We always have wind speed, air pressure, te
 # UX
 
 - as I click around, I want to know why certain dates are bad. Maybe I would make an exception for this date if I knew more details
-- add input for station IDs
 - why are some dates not colored in?
-- give user a link to the interactive ndbc map
 - let user pick a range of dates by clicking and dragging on the calendar and getting an alert with the date range
 - make UI look nice
 
