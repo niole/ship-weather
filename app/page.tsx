@@ -157,6 +157,7 @@ export default function Home() {
   const [stationIds, setStationIds] = useState<string[]>(['lapw1', 'desw1']);
   const [stationIdToImport, setImportStationId] = useState<string | undefined>();
   const [importYearRange, setImportYearRange] = useState<[number, number]>([CURR_YEAR, CURR_YEAR]);
+  const [selectedDateDetails, setSelectedDateDetails] = useState<DayPrediction | undefined>();
 
   useEffect(() => {
     fetchPredictions(calendarView.view, calendarView.activeStartDate, stationIds)
@@ -228,27 +229,47 @@ export default function Home() {
           />
         </div>
       </div>
-      <Calendar
-        onClickDay={(date) => {
-          const key = getDateKey(date);
-          console.log(predictions.find(p => getDateKey(p.date) === key));
-        }}
-        activeStartDate={calendarView.activeStartDate}
-        onActiveStartDateChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
-        onViewChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
-        tileClassName={({ date }) => {
-          switch (predictionMap[getDateKey(date)]) {
-            case 2:
-              return 'good';
-            case 1:
-              return 'ok';
-            case 0:
-              return 'bad';
-            default:
-              return;
-          }
-        }}
-      />
+      <div className="flex">
+        <div className="flex-2">
+          <Calendar
+            onClickDay={date => {
+              const key = getDateKey(date);
+              if (selectedDateDetails && key === getDateKey(selectedDateDetails!.date)) {
+                setSelectedDateDetails(undefined);
+              } else {
+                setSelectedDateDetails(predictions.find(p => getDateKey(p.date) === key));
+              }
+            }}
+            activeStartDate={calendarView.activeStartDate}
+            onActiveStartDateChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
+            onViewChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
+            tileClassName={({ date }) => {
+              switch (predictionMap[getDateKey(date)]) {
+                case 2:
+                  return 'good';
+                case 1:
+                  return 'ok';
+                case 0:
+                  return 'bad';
+                default:
+                  return;
+              }
+            }}
+          />
+        </div>
+        <div className="ml-4 flex-1 border border-gray-300 rounded-md p-4">
+          {selectedDateDetails ? (
+            <div>
+              {Object.entries(selectedDateDetails).map(([key, value]) => (
+                <div key={key} className="mb-2">
+                  <span className="font-semibold">{key}: </span>
+                  <span>{value instanceof Date ? value.toLocaleDateString() : JSON.stringify(value)}</span>
+                </div>
+              ))}
+            </div>
+          ) : 'no details selected'}
+        </div>
+      </div>
     </div>
   );
 }
