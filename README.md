@@ -40,3 +40,17 @@ often we don't have wht or wpd data. We always have wind speed, air pressure, te
 - what are the appropriate whts and wpds for different boats? Are multiple distinct ranges possible?
 - can we recommend previous years to examine?
 - what ranges for basic meteorological data indicate calm vs stormy conditions?
+
+# Seeding
+
+Seed data from the National Data Buoy Center by specifying a range of years and a station ID.
+
+```sh
+npx ts-node
+```
+
+```js
+let c = require('./getData.ts');
+// station ID is lower case
+c.saveDataDb(2020, 2024, 'lapw1');
+```
