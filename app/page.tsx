@@ -5,6 +5,7 @@ import RangeControls from "@/lib/components/RangeControls";
 import YearSelector from "@/lib/components/YearSelector";
 import { type DayPrediction } from "@/lib/types";
 import 'react-calendar/dist/Calendar.css';
+import NavButton from "@/lib/components/NavButton";
 
 const CURR_YEAR = new Date().getFullYear();
 
@@ -154,10 +155,11 @@ export default function Home() {
   const [predictions, setDayPredictions] = useState<DayPrediction[]>([]);
   const [predictionMap, setDayPredictionsMap] = useState<Record<string, number>>({});
   const [calendarView, setCalendarView] = useState<{ view: string, activeStartDate: Date }>({view: 'month', activeStartDate: new Date()});
-  const [stationIds, setStationIds] = useState<string[]>(['lapw1', 'desw1']);
+  const [stationIds, setStationIds] = useState<string[]>([]);
   const [stationIdToImport, setImportStationId] = useState<string | undefined>();
   const [importYearRange, setImportYearRange] = useState<[number, number]>([CURR_YEAR, CURR_YEAR]);
   const [selectedDateDetails, setSelectedDateDetails] = useState<DayPrediction | undefined>();
+  const [activeTab, setActiveTab] = useState<'filters' | 'import'>('filters');
 
   useEffect(() => {
     fetchPredictions(calendarView.view, calendarView.activeStartDate, stationIds)
@@ -173,62 +175,76 @@ export default function Home() {
 
   const setStationIdHandler = debounce((e: any) => setStationIds(e.target.value.split(',').map((s: string) => s.trim())));
 
+  const filterTab = (
+    <>
+      <RangeControls label="Wave Height Feet" range={waveHeightRange} setRange={setWaveHeightRange} lowerBound={0} upperBound={WHT_UB} />
+      <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={WPD_UB} />
+      <YearSelector
+        label="Filter By Year"
+        value={calendarView.activeStartDate.getFullYear()}
+        onChange={year => setCalendarView({
+          view: calendarView.view,
+          activeStartDate: new Date(year, calendarView.activeStartDate.getMonth(), calendarView.activeStartDate.getDate())
+        })}
+      />
+      <div>
+        <div>
+          Station IDs (comma separated list)
+        </div>
+        <input
+          className="border border-gray-300 rounded-md p-1 w-full"
+          type="text"
+          defaultValue={stationIds.join(',')}
+          placeholder="Get IDs from NDBC Station map"
+          onChange={setStationIdHandler}
+        />
+      </div>
+    </>
+  );
+
+  const importTab = (
+    <>
+      <div className="flex space-x-8">
+        <YearSelector
+          label="Start Year"
+          value={importYearRange[0]}
+          onChange={year => setImportYearRange([year, importYearRange[1]])}
+        />
+        <YearSelector
+          label="End Year"
+          value={importYearRange[1]}
+          onChange={year => setImportYearRange([importYearRange[0], year])}
+        />
+      </div>
+      <div className="flex space-x-1">
+        <input
+          className="border border-gray-300 rounded-md p-1"
+          type="text"
+          placeholder="Enter station ID"
+          onChange={e => setImportStationId(e.target.value)}
+        />
+        <input
+          className="border border-gray-300 rounded-md p-1"
+          type="submit"
+          value="Import"
+          onClick={handleImportStationData(importYearRange, stationIdToImport)}
+        />
+      </div>
+    </>
+  );
+
   return (
     <div className="p-4">
-      <div className="flex">
-        <RangeControls label="Wave Height Feet" range={waveHeightRange} setRange={setWaveHeightRange} lowerBound={0} upperBound={WHT_UB} />
-        <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={WPD_UB} />
-      </div>
-      <div className="mb-6 flex">
-        <YearSelector
-          label="Filter By Year:"
-          value={calendarView.activeStartDate.getFullYear()}
-          onChange={year => setCalendarView({
-            view: calendarView.view, 
-            activeStartDate: new Date(year, calendarView.activeStartDate.getMonth(), calendarView.activeStartDate.getDate())
-          })}
-        />
-        <div className="flex-1">
-          <div>
-            Station:
-          </div>
+      <nav className="flex border-b border-gray-200 mb-4">
+        <div>
+        <NavButton tabKey="filters" activeTab={activeTab} setActiveTab={() => setActiveTab('filters')}>Filters</NavButton>
+        <NavButton tabKey="import" activeTab={activeTab} setActiveTab={() => setActiveTab('import')}>Import Data</NavButton>
+        </div>
+        <div className="ml-auto">
           <a className="block text-blue-500" href="https://www.ndbc.noaa.gov/obs.shtml" target="_blank">National Data Buoy Center Station Map</a>
-          <input
-            className="border border-gray-300 rounded-md p-1"
-            type="text"
-            defaultValue={stationIds.join(',')}
-            onChange={setStationIdHandler}
-          />
         </div>
-        <div className="flex-1">
-          <div>
-            Import Station Data:
-          </div>
-          <div className="flex">
-            <YearSelector
-              label="Start Year:"
-              value={importYearRange[0]}
-              onChange={year => setImportYearRange([year, importYearRange[1]])}
-            />
-            <YearSelector
-              label="End Year:"
-              value={importYearRange[1]}
-              onChange={year => setImportYearRange([importYearRange[0], year])}
-            />
-          </div>
-          <input
-            className="border border-gray-300 rounded-md p-1"
-            type="text"
-            placeholder="Station ID"
-            onChange={e => setImportStationId(e.target.value)}
-          />
-          <input
-            className="border border-gray-300 rounded-md p-1"
-            type="submit"
-            onClick={handleImportStationData(importYearRange, stationIdToImport)}
-          />
-        </div>
-      </div>
+      </nav>
+      <div className="flex mb-8 space-x-8">{activeTab === 'filters' ? filterTab : importTab}</div>
       <div className="flex">
         <div className="flex-2">
           <Calendar

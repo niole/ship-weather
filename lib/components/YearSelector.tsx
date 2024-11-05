@@ -8,7 +8,7 @@ type Props = {
 
 export default function YearSelector({ label, value, onChange}: Props) {    
   return (
-    <div className="flex-1">
+    <div>
       <div>
         {label}
       </div>
