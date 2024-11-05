@@ -114,7 +114,11 @@ export async function getDayPredictionsInRange(startDate: Date, endDate: Date, s
     .filter(s => castNonsenseToNull(s.windSpeedMs!) !== null)
     .map(sample => {
         const windSpeedKts = msToKts(sample.windSpeedMs!);
+        // TODO some wave heights are still null...
         const waveHeight = mToFt(castNonsenseToNull(sample.waveHeightM)) ?? getBeaufortWhtPredictionFt(windSpeedKts);
+        if (!waveHeight) {
+          console.error('No wave height', sample);
+        }
         const wavePeriod = castNonsenseToNull(sample.averageWavePeriodS) ?? undefined;
 
         // TODO

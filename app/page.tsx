@@ -180,7 +180,7 @@ export default function Home() {
       <RangeControls label="Wave Height Feet" range={waveHeightRange} setRange={setWaveHeightRange} lowerBound={0} upperBound={WHT_UB} />
       <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={WPD_UB} />
       <YearSelector
-        label="Filter By Year"
+        label="Year"
         value={calendarView.activeStartDate.getFullYear()}
         onChange={year => setCalendarView({
           view: calendarView.view,
