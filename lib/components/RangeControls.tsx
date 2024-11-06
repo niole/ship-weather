@@ -8,7 +8,7 @@ type Props = {
 export default function RangeControls({ range, setRange, label, lowerBound = 0, upperBound = 10}: Props) {
   const [min, max] = range;
   return (
-      <div className="mb-6 ml-8">
+      <div>
         <div>
           {label}
         </div>

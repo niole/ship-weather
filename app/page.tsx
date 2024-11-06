@@ -105,18 +105,23 @@ function getScore(
   return 0;
 }
 
+type PredictionWithScore = DayPrediction & { score: number };
+
 // map from iso date string to acceptability score
 // 0: bad, 1: ok, 2: good
-type PredictionMap = Record<string, number>;
+type PredictionMap = Record<string, PredictionWithScore>;
 
 function makePredictionMap(predictions: DayPrediction[], waveHtRange: [number, number], wavePdRange: [number, number]): PredictionMap {
-  return predictions.reduce((acc, prediction) => ({...acc, [getDateKey(prediction.date)]: getScore(
-    prediction,
-    waveHtRange[0],
-    waveHtRange[1],
-    wavePdRange[0],
-    wavePdRange[1],
-  )}), {});
+  return predictions.reduce((acc, prediction) => ({...acc, [getDateKey(prediction.date)]: {
+    score: getScore(
+      prediction,
+      waveHtRange[0],
+      waveHtRange[1],
+      wavePdRange[0],
+      wavePdRange[1],
+    ),
+    ...prediction,
+  }}), {});
 }
 
 // TODO debounce all range changes
@@ -153,12 +158,12 @@ export default function Home() {
   const [waveHeightRange, setWaveHeightRange] = useState<[number, number]>([0, WHT_UB]);
   const [wavePeriodRange, setWavePeriodRange] = useState<[number, number]>([0, WPD_UB]);
   const [predictions, setDayPredictions] = useState<DayPrediction[]>([]);
-  const [predictionMap, setDayPredictionsMap] = useState<Record<string, number>>({});
+  const [predictionMap, setDayPredictionsMap] = useState<PredictionMap>({});
   const [calendarView, setCalendarView] = useState<{ view: string, activeStartDate: Date }>({view: 'month', activeStartDate: new Date()});
   const [stationIds, setStationIds] = useState<string[]>([]);
   const [stationIdToImport, setImportStationId] = useState<string | undefined>();
   const [importYearRange, setImportYearRange] = useState<[number, number]>([CURR_YEAR, CURR_YEAR]);
-  const [selectedDateDetails, setSelectedDateDetails] = useState<DayPrediction | undefined>();
+  const [selectedDateDetails, setSelectedDateDetails] = useState<PredictionWithScore | undefined>();
   const [activeTab, setActiveTab] = useState<'filters' | 'import'>('filters');
 
   useEffect(() => {
@@ -175,10 +180,15 @@ export default function Home() {
 
   const setStationIdHandler = debounce((e: any) => setStationIds(e.target.value.split(',').map((s: string) => s.trim())));
 
+  const missingWavePeriodData = !!predictions.find(p => p.wavePeriod === null || p.wavePeriod === undefined);
+
   const filterTab = (
     <>
       <RangeControls label="Wave Height Feet" range={waveHeightRange} setRange={setWaveHeightRange} lowerBound={0} upperBound={WHT_UB} />
-      <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={WPD_UB} />
+      <div>
+        <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={WPD_UB} />
+        {missingWavePeriodData && <div className="text-orange-500">Days with orange dots don't include wave period data</div>}
+      </div>
       <YearSelector
         label="Year"
         value={calendarView.activeStartDate.getFullYear()}
@@ -253,14 +263,14 @@ export default function Home() {
               if (selectedDateDetails && key === getDateKey(selectedDateDetails!.date)) {
                 setSelectedDateDetails(undefined);
               } else {
-                setSelectedDateDetails(predictions.find(p => getDateKey(p.date) === key));
+                setSelectedDateDetails(predictionMap[key]);
               }
             }}
             activeStartDate={calendarView.activeStartDate}
             onActiveStartDateChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
             onViewChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
             tileClassName={({ date }) => {
-              switch (predictionMap[getDateKey(date)]) {
+              switch (predictionMap[getDateKey(date)]?.score) {
                 case 2:
                   return 'good';
                 case 1:
@@ -269,6 +279,15 @@ export default function Home() {
                   return 'bad';
                 default:
                   return;
+              }
+            }}
+            tileContent={({ date }) => {
+              const prediction = predictionMap[getDateKey(date)];
+              if (prediction) {
+                const { wavePeriod } = prediction;
+                if (wavePeriod === null || wavePeriod === undefined) {
+                  return <div className="w-2 h-2 rounded-full bg-orange-500 mx-auto mt-1"></div>;
+                }
               }
             }}
           />
