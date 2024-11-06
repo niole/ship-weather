@@ -35,7 +35,6 @@ often we don't have wht or wpd data. We always have wind speed, air pressure, te
 - make fetch util that handles 500 errors
 - this row breaks the importer: 2023 01 24 01 00 204  6.3  6.7 99.00 99.00 99.00 999 1032.7 999.0 999.0 999.0 99.0 99.00, it thinks that the year is 2025. There is some data in desw1 which breaks the importer and we should find out what it is so we can fix the importing logic.
 - some day predictions don't hve wave height, which should have been calculated via wind speed
-- wave height is null for "2024-08-02T10:25:00.000Z" for desw1, backend calculates it as null
 
 # Questions
 

@@ -50,7 +50,30 @@ function getBeaufortWhtPredictionFt(windSpeedKts: number): number {
     return 19;
   }
 
-  return Infinity;
+  // gale
+  if (windSpeedKts <= 40) {
+    return 25;
+  }
+
+  // strong gale
+  if (windSpeedKts <= 47) {
+    return 32;
+  }
+
+  // storm
+  if (windSpeedKts <= 55) {
+    return 41;
+  }
+
+  // violent storm
+  if (windSpeedKts <= 63) {
+    return 52;
+  }
+
+  // hurricane
+  // return ridiculous number instead of infinity bc some libraries
+  // cast it to null
+  return 1000;
 }
 
 /**
@@ -116,9 +139,7 @@ export async function getDayPredictionsInRange(startDate: Date, endDate: Date, s
         const windSpeedKts = msToKts(sample.windSpeedMs!);
         // TODO some wave heights are still null...
         const waveHeight = mToFt(castNonsenseToNull(sample.waveHeightM)) ?? getBeaufortWhtPredictionFt(windSpeedKts);
-        if (!waveHeight) {
-          console.error('No wave height', sample);
-        }
+
         const wavePeriod = castNonsenseToNull(sample.averageWavePeriodS) ?? undefined;
 
         // TODO
@@ -146,6 +167,7 @@ export async function getDayPredictionsInRange(startDate: Date, endDate: Date, s
     return Object.values(groupedSamples).map(dayPredictions => {
         const metrics = dayPredictions.reduce((acc, s) => {
             acc.windSpeedKts += s.windSpeedKts;
+            // TODO some times waveHeight is null
             if (s.waveHeight) {
                 acc.waveHeight += s.waveHeight;
                 acc.totalWaveHeightSamples++;
