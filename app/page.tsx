@@ -237,8 +237,8 @@ export default function Home() {
     <div className="p-4">
       <nav className="flex border-b border-gray-200 mb-4">
         <div>
-        <NavButton tabKey="filters" activeTab={activeTab} setActiveTab={() => setActiveTab('filters')}>Filters</NavButton>
-        <NavButton tabKey="import" activeTab={activeTab} setActiveTab={() => setActiveTab('import')}>Import Data</NavButton>
+          <NavButton tabKey="filters" activeTab={activeTab} setActiveTab={() => setActiveTab('filters')}>Filters</NavButton>
+          <NavButton tabKey="import" activeTab={activeTab} setActiveTab={() => setActiveTab('import')}>Import Data</NavButton>
         </div>
         <div className="ml-auto">
           <a className="block text-blue-500" href="https://www.ndbc.noaa.gov/obs.shtml" target="_blank">National Data Buoy Center Station Map</a>
