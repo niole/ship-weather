@@ -10,7 +10,7 @@ import NavButton from "@/lib/components/NavButton";
 const CURR_YEAR = new Date().getFullYear();
 
 const WHT_UB = 20;
-const WPD_UB = 20;
+const WPD_UB = 1100;
 
 const handleImportStationData = (importYearRange: [number, number], stationIdToImport?: string) => () => {
   const [startYear, endYear] = importYearRange;
@@ -295,6 +295,13 @@ export default function Home() {
         <div className="ml-4 flex-1 border border-gray-300 rounded-md p-4">
           {selectedDateDetails ? (
             <div>
+              <button
+                title="clear"
+                onClick={() => setSelectedDateDetails(undefined)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
               {Object.entries(selectedDateDetails).map(([key, value]) => (
                 <div key={key} className="mb-2">
                   <span className="font-semibold">{key}: </span>
