@@ -45,9 +45,9 @@ function debounce(fn: (e: any) => void, ms: number = 500) {
   };
 }
 
-async function getDayPredictionsInRange(startDate: Date, endDate: Date, stationIds: string[]): Promise<DayPrediction[]> {
+async function getDayPredictionsInRange(startDate: Date, endDate: Date, stationIds: string[], percentile: number): Promise<DayPrediction[]> {
   // TODO what timezone does noaa use for dates?
-  const response = await fetch(`/api?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}&stationIds=${stationIds.join(',')}`);
+  const response = await fetch(`/api?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}&stationIds=${stationIds.join(',')}&percentile=${percentile/100}`);
   const data = await response.json();
   return data.data.map((d: DayPrediction) => ({...d, date: new Date(d.date)}));
 }
@@ -129,6 +129,7 @@ async function fetchPredictions(
   view: string | 'month' | 'year' | 'day',
   activeStartDate: Date,
   stationIds: string[],
+  percentile: number,
 ): Promise<DayPrediction[]> {
   // if day, fetch single day
   // if month, fetch month before and after
@@ -137,18 +138,18 @@ async function fetchPredictions(
 
   switch (view) {
     case 'day':
-      return getDayPredictionsInRange(activeStartDate, activeStartDate, stationIds);
+      return getDayPredictionsInRange(activeStartDate, activeStartDate, stationIds, percentile);
     case 'month':
       const currMs = activeStartDate.getTime();
       const monthStart = new Date(currMs - (40*msInDay));
       const monthEnd = new Date(currMs + (40*msInDay));
-      return getDayPredictionsInRange(monthStart, monthEnd, stationIds);
+      return getDayPredictionsInRange(monthStart, monthEnd, stationIds, percentile);
     case 'year':
       // TODO year view will only show months, is it necessary to get all days?
       const year = activeStartDate.getFullYear();
       const startDateMs = new Date(year, 1, 0).getTime();
       const endDate = new Date(startDateMs + (365 * msInDay));
-      return getDayPredictionsInRange(new Date(startDateMs), endDate, stationIds);
+      return getDayPredictionsInRange(new Date(startDateMs), endDate, stationIds, percentile);
     default:
         return [];
   }
@@ -165,14 +166,17 @@ export default function Home() {
   const [importYearRange, setImportYearRange] = useState<[number, number]>([CURR_YEAR, CURR_YEAR]);
   const [selectedDateDetails, setSelectedDateDetails] = useState<PredictionWithScore | undefined>();
   const [activeTab, setActiveTab] = useState<'filters' | 'import'>('filters');
-
+  const [percentileRange, setPercentileRange] = useState<[number, number]>([0, 95]);
   useEffect(() => {
-    fetchPredictions(calendarView.view, calendarView.activeStartDate, stationIds)
-    .then(setDayPredictions)
+    fetchPredictions(calendarView.view, calendarView.activeStartDate, stationIds, percentileRange[1])
+    .then(p => {
+      setDayPredictions(p);
+      setSelectedDateDetails(undefined);
+    })
     .catch(e => {
       console.error('Error fetching predictions while updating calendar view', e);
     });
-  }, [calendarView, stationIds]);
+  }, [calendarView, stationIds, percentileRange]);
 
   useEffect(() => {
     setDayPredictionsMap(makePredictionMap(predictions, waveHeightRange, wavePeriodRange));
@@ -180,7 +184,7 @@ export default function Home() {
 
   const setStationIdHandler = debounce((e: any) => setStationIds(e.target.value.split(',').map((s: string) => s.trim())));
 
-  const missingWavePeriodData = !!predictions.find(p => p.wavePeriod === null || p.wavePeriod === undefined);
+  const missingWavePeriodData = predictions.length > 0 ? !!predictions.find(p => p.wavePeriod === null || p.wavePeriod === undefined) : false;
 
   const filterTab = (
     <>
@@ -189,6 +193,7 @@ export default function Home() {
         <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={WPD_UB} />
         {missingWavePeriodData && <div className="text-orange-500">Days with orange dots don't include wave period data</div>}
       </div>
+      <RangeControls label="Percentile" range={percentileRange} setRange={setPercentileRange} lowerBound={0} upperBound={100} onlyMax={true} />
       <YearSelector
         label="Year"
         value={calendarView.activeStartDate.getFullYear()}
@@ -199,16 +204,17 @@ export default function Home() {
       />
       <div>
         <div>
-          Station IDs (comma separated list)
+          Selected Stations (comma separated list)
         </div>
         <input
           className="border border-gray-300 rounded-md p-1 w-full"
           type="text"
           defaultValue={stationIds.join(',')}
-          placeholder="Get IDs from NDBC Station map"
+          placeholder="Get IDs from NDBC Station Map"
           onChange={setStationIdHandler}
         />
       </div>
+      {predictions.length === 0 && <div className="text-orange-500">No data found. Pick another date range or station.</div>}
     </>
   );
 
@@ -250,7 +256,7 @@ export default function Home() {
           <NavButton tabKey="filters" activeTab={activeTab} setActiveTab={() => setActiveTab('filters')}>Filters</NavButton>
           <NavButton tabKey="import" activeTab={activeTab} setActiveTab={() => setActiveTab('import')}>Import Data</NavButton>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto border border-gray-300 rounded-md p-1 mb-1">
           <a className="block text-blue-500" href="https://www.ndbc.noaa.gov/obs.shtml" target="_blank">National Data Buoy Center Station Map</a>
         </div>
       </nav>

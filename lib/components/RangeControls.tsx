@@ -3,9 +3,10 @@ type Props = {
     range: [number, number],
     setRange: (range: [number, number]) => void,
     lowerBound?: number,
-    upperBound?: number
+    upperBound?: number,
+    onlyMax?: boolean
 };
-export default function RangeControls({ range, setRange, label, lowerBound = 0, upperBound = 10}: Props) {
+export default function RangeControls({ range, setRange, label, lowerBound = 0, upperBound = 10, onlyMax = false }: Props) {
   const [min, max] = range;
   return (
       <div>
@@ -13,7 +14,7 @@ export default function RangeControls({ range, setRange, label, lowerBound = 0, 
           {label}
         </div>
         <div className="flex">
-          <div className="flex-1">
+          {!onlyMax && <div className="flex-1">
             <label className="block text-sm font-medium mb-2">
               Min: {min}
             </label>
@@ -23,11 +24,12 @@ export default function RangeControls({ range, setRange, label, lowerBound = 0, 
               value={min}
               onChange={(e) => setRange([Number(e.target.value), range[1]])}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-            />
-          </div>
-          <div className="flex-1 ml-4">
+              />
+            </div>
+          }
+          <div className={`flex-1 ${!onlyMax ? 'ml-4' : ''}`}>
             <label className="block text-sm font-medium mb-2">
-              Max: {max}
+              {!onlyMax && 'Max: '} {max}
             </label>
             <input
               type="range"

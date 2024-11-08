@@ -12,6 +12,11 @@ if (process.env.NODE_ENV === 'development') {
   global.prisma = prisma;
 }
 
+function getPercentile(values: number[], percent: number): number | undefined {
+  const index = Math.floor(percent * values.length);
+  return values.sort((a, b) => a - b)[index];
+}
+
 function castNonsenseToNull(v: number | undefined | null): number | null {
   if (v === 9999 || v === 999 || v === 99 || v === undefined || v === null) {
     return null;
@@ -118,7 +123,7 @@ function mToFt(m: number | undefined | null): number | undefined {
  * @param stationIds Ids of National Data Buoy Center stations, must be lowercase, https://www.ndbc.noaa.gov/obs.shtml
  * @returns  Predictions of ocean metrics aggregated by day during specified range for stations
  */
-export async function getDayPredictionsInRange(startDate: Date, endDate: Date, stationIds: string[]): Promise<DayPrediction[]> {
+export async function getDayPredictionsInRange(startDate: Date, endDate: Date, stationIds: string[], confidence: number): Promise<DayPrediction[]> {
     if (endDate < startDate) {
         console.error('Can\'t get day predictions. endDate must be greater than startDate. endDate:', endDate, 'startDate:', startDate);
         return [];
@@ -162,18 +167,12 @@ export async function getDayPredictionsInRange(startDate: Date, endDate: Date, s
         return acc;
     }, {});
 
-    function getPercentile(values: number[], percent: number): number | undefined {
-      const index = Math.floor(percent * values.length);
-      return values.sort()[index];
-    }
-
     // average each metric, leave raw data alone
     // each day predictions should be at least 1 day of data
     return Object.values(groupedSamples).map(dayPredictions => {
-      const percent = 0.95;
-      const windSpeedKts = getPercentile(dayPredictions.map(p => p.windSpeedKts), percent)!;
-      const waveHeight = getPercentile(dayPredictions.map(p => p.waveHeight).filter(x => x !== undefined && x !== null), percent)!;
-      const wavePeriod = getPercentile(dayPredictions.map(p => p.wavePeriod).filter(x => x !== undefined && x !== null), percent);      
+      const windSpeedKts = getPercentile(dayPredictions.map(p => p.windSpeedKts), confidence)!;
+      const waveHeight = getPercentile(dayPredictions.map(p => p.waveHeight).filter(x => x !== undefined && x !== null), confidence)!;
+      const wavePeriod = getPercentile(dayPredictions.map(p => p.wavePeriod).filter(x => x !== undefined && x !== null), confidence);      
 
       return {
         windSpeedKts,
