@@ -162,43 +162,26 @@ export async function getDayPredictionsInRange(startDate: Date, endDate: Date, s
         return acc;
     }, {});
 
+    function getPercentile(values: number[], percent: number): number | undefined {
+      const index = Math.floor(percent * values.length);
+      return values.sort()[index];
+    }
+
     // average each metric, leave raw data alone
     // each day predictions should be at least 1 day of data
     return Object.values(groupedSamples).map(dayPredictions => {
-        const metrics = dayPredictions.reduce((acc, s) => {
-            acc.windSpeedKts += s.windSpeedKts;
-            // TODO some times waveHeight is null
-            if (s.waveHeight) {
-                acc.waveHeight += s.waveHeight;
-                acc.totalWaveHeightSamples++;
-            }
+      const percent = 0.95;
+      const windSpeedKts = getPercentile(dayPredictions.map(p => p.windSpeedKts), percent)!;
+      const waveHeight = getPercentile(dayPredictions.map(p => p.waveHeight).filter(x => x !== undefined && x !== null), percent)!;
+      const wavePeriod = getPercentile(dayPredictions.map(p => p.wavePeriod).filter(x => x !== undefined && x !== null), percent);      
 
-            if (s.wavePeriod) {
-                acc.wavePeriod += s.wavePeriod;
-                acc.totalWavePeriodSamples++;
-            }
-
-            // TODO
-            acc.weatherInstability += s.weatherInstability ?? 0;
-
-            return acc
-        }, {
-            windSpeedKts: 0,
-            waveHeight: 0,
-            totalWaveHeightSamples: 0,
-            wavePeriod: 0,
-            totalWavePeriodSamples: 0,
-            weatherInstability: 0,
-        });
-
-        return {
-            date: dayPredictions[0].date,
-            windSpeedKts: metrics.windSpeedKts / dayPredictions.length,
-            waveHeight: metrics.waveHeight / metrics.totalWaveHeightSamples,
-            wavePeriod: metrics.wavePeriod / metrics.totalWavePeriodSamples,
-            weatherInstability: metrics.weatherInstability / dayPredictions.length,
-            rawData: dayPredictions.map(p => p.rawData ? p.rawData[0] : null).filter(x => x !== null),
-        };
+      return {
+        windSpeedKts,
+        waveHeight,
+        wavePeriod,
+        date: dayPredictions[0].date,
+        rawData: dayPredictions.map(p => p.rawData ? p.rawData[0] : null).filter(x => x !== null),
+      };
     });
 
 
