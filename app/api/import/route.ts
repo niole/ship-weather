@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { saveDataDb } from "@/lib/import/util";
 
 // gets day predictions for a given date range and station ids
-export async function GET(request: NextRequest, response: NextResponse) {
+export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
     const rawStartYear = searchParams.get('startYear');
     const rawEndYear = searchParams.get('endYear');
