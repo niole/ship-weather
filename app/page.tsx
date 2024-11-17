@@ -249,14 +249,9 @@ export default function Home() {
     <>
       <div className="flex space-x-8">
         <YearSelector
-          label="Start Year"
+          label="Year"
           value={importYearRange[0]}
-          onChange={year => setImportYearRange([year, importYearRange[1]])}
-        />
-        <YearSelector
-          label="End Year"
-          value={importYearRange[1]}
-          onChange={year => setImportYearRange([importYearRange[0], year])}
+          onChange={year => setImportYearRange([year, year+1])}
         />
       </div>
       <div className="flex space-x-1">
