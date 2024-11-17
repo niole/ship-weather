@@ -1,4 +1,5 @@
 export function handleFetch<R>(url: string, metadata: any = undefined, isJson: boolean = true, isText: boolean = false, raw: boolean = false): Promise<R> {
+
   return fetch(url, metadata)
   .then(async response => {
     let body;

@@ -26,7 +26,7 @@ async function downloadNoaaFile(year: number, buoyStationId: string = DEFAULT_ST
   const compressedFn = `${buoyStationId}h${year}.txt.gz`;
   const compressedUrl = `https://www.ndbc.noaa.gov/data/historical/stdmet/${compressedFn}`;
 
-  return handleFetch(compressedUrl, {
+  return handleFetch<ReadableStream<Uint8Array>>(compressedUrl, {
     "headers": {
       "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
     },
@@ -37,8 +37,9 @@ async function downloadNoaaFile(year: number, buoyStationId: string = DEFAULT_ST
       const path = `/tmp/${compressedFn}`;
       try {
         fs.writeFileSync(path, '');
-        
-        for await (const chunk of body) {
+       
+        // at time of writing, body is a ReadableStream<Uint8Array> and should implement the AsyncIterable protocol
+        for await (const chunk of body as any) {
           // Append each chunk to the file
           fs.appendFileSync(path, chunk);
         }
