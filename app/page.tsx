@@ -170,6 +170,11 @@ export default function Home() {
       return;
     }
 
+    if (endYear - startYear > 5) {
+      alert('Please import less than 5 years of data at a time.');
+      return;
+    }
+
     if (isImporting) {
       const shouldCancel = confirm('Import already in progress. Cancel?');
       if (shouldCancel) {
