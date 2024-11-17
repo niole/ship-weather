@@ -131,28 +131,61 @@ async function* parseNoaaFile(stationId: string, path: string): AsyncGenerator<W
   }
 }
 
-export async function saveDataDb(yearStart: number, yearEnd: number | null = null, buoyStationId: string = DEFAULT_STATION_ID) {
+async function upsertSamples(samples: WeatherSensorSample[], buoyStationId: string) {
   try {
-    for (let year = yearStart; year <= (yearEnd ?? yearStart + 1); year++) {
+    let seenDates: Set<string> = new Set();
+    const deduped: WeatherSensorSample[] = [];
+    for (const sample of samples) {
+      if (!seenDates.has(sample.date.toISOString())) {
+        deduped.push(sample);
+      }
+      seenDates.add(sample.date.toISOString());
+    }
+    return prisma.$transaction([
+      prisma.weatherSensorSample.deleteMany({
+        where: {
+          stationId: buoyStationId,
+          date: { in: Array.from(seenDates) },
+        },
+      }),
+      prisma.weatherSensorSample.createMany({data: deduped}),
+    ]);
+  } catch (e) {
+    console.error('Error adding data for samples. total samples: ', samples.length, ', for station: ', buoyStationId, e);
+  }
+}
+
+export async function saveDataDb(yearStart: number, yearEnd: number | null = null, buoyStationId: string = DEFAULT_STATION_ID) {
+  const upsertBatchSize = 5000;
+  try {
+    for (let year = yearStart; year < (yearEnd ?? yearStart + 1); year++) {
       let file = '';
+      const downloadStart = Date.now();
       try {
+        console.log('Starting to download file for year: ', year, ', for station: ', buoyStationId);
         file = await downloadNoaaFile(year, buoyStationId)
+        const downloadEnd = Date.now();
+        console.log('Downloaded file for year: ', year, ', for station: ', buoyStationId, ', in: ', downloadEnd - downloadStart, 'ms');
+        console.log('Starting to parse file for year: ', year, ', for station: ', buoyStationId);
+        const parseStart = Date.now();
+
+        let samples: WeatherSensorSample[] = [];
         for await (const sample of parseNoaaFile(buoyStationId, file)) {
-          try {
-            await prisma.weatherSensorSample.upsert({
-              where: {
-                date_stationId: {
-                  date: sample.date,
-                  stationId: sample.stationId,
-                },
-              },
-              create: sample,
-              update: sample,
-            });
-          } catch (e) {
-            console.error('Error adding data for sample: ', sample.date, ', for station: ', buoyStationId, e);
+          samples.push(sample);
+
+          if (samples.length > upsertBatchSize) {
+            await upsertSamples(samples, buoyStationId)
+            samples = [];
           }
         }
+
+        if (samples.length) {
+          await upsertSamples(samples, buoyStationId)
+          samples = [];
+        }
+
+        const parseEnd = Date.now();
+        console.log('Parsed file for year: ', year, ', for station: ', buoyStationId, ', in: ', parseEnd - parseStart, 'ms');
       } catch (e) {
         console.error('Error adding data for year: ', year, ', for station: ', buoyStationId, e);
       } finally {
