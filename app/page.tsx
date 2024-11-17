@@ -211,9 +211,9 @@ export default function Home() {
 
   const filterTab = (
     <>
-      <RangeControls label="Wave Height Feet" range={waveHeightRange} setRange={setWaveHeightRange} lowerBound={0} upperBound={WHT_UB} />
+      <RangeControls label="Wave Height Feet" range={waveHeightRange} setRange={setWaveHeightRange} lowerBound={0} upperBound={WHT_UB} onlyMax={true} />
       <div>
-        <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={WPD_UB} />
+        <RangeControls label="Wave Period Seconds" range={wavePeriodRange} setRange={setWavePeriodRange} lowerBound={0} upperBound={WPD_UB} onlyMax={true} />
         {missingWavePeriodData && <div className="text-orange-500">Days with orange dots don't include wave period data</div>}
       </div>
       <RangeControls label="Percentile" range={percentileRange} setRange={setPercentileRange} lowerBound={0} upperBound={100} onlyMax={true} />
@@ -293,61 +293,58 @@ export default function Home() {
       <div className="flex mb-8 space-x-8">{activeTab === 'filters' ? filterTab : importTab}</div>
       <div className="text-orange-500 text-center pb-4">{predictions.length === 0 ? "No data found. Pick another date range or station." : ""}</div>
       <div className="flex">
-        <div className="flex-2">
-          <Calendar
-            onClickDay={date => {
-              const key = getDateKey(date);
-              if (selectedDateDetails && key === getDateKey(selectedDateDetails!.date)) {
-                setSelectedDateDetails(undefined);
-              } else {
-                setSelectedDateDetails(predictionMap[key]);
+        <Calendar
+          className="!w-2/3"
+          onClickDay={date => {
+            const key = getDateKey(date);
+            if (selectedDateDetails && key === getDateKey(selectedDateDetails!.date)) {
+              setSelectedDateDetails(undefined);
+            } else {
+              setSelectedDateDetails(predictionMap[key]);
+            }
+          }}
+          activeStartDate={calendarView.activeStartDate}
+          onActiveStartDateChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
+          onViewChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
+          tileClassName={({ date }) => {
+            switch (predictionMap[getDateKey(date)]?.score) {
+              case 2:
+                return 'good';
+              case 1:
+                return 'ok';
+              case 0:
+                return 'bad';
+              default:
+                return;
+            }
+          }}
+          tileContent={({ date }) => {
+            const prediction = predictionMap[getDateKey(date)];
+            if (prediction) {
+              const { wavePeriod } = prediction;
+              if (wavePeriod === null || wavePeriod === undefined) {
+                return <div className="w-2 h-2 rounded-full bg-orange-500 mx-auto mt-1"></div>;
               }
-            }}
-            activeStartDate={calendarView.activeStartDate}
-            onActiveStartDateChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
-            onViewChange={({ view, activeStartDate }) => setCalendarView({view, activeStartDate: activeStartDate ?? new Date()})}
-            tileClassName={({ date }) => {
-              switch (predictionMap[getDateKey(date)]?.score) {
-                case 2:
-                  return 'good';
-                case 1:
-                  return 'ok';
-                case 0:
-                  return 'bad';
-                default:
-                  return;
-              }
-            }}
-            tileContent={({ date }) => {
-              const prediction = predictionMap[getDateKey(date)];
-              if (prediction) {
-                const { wavePeriod } = prediction;
-                if (wavePeriod === null || wavePeriod === undefined) {
-                  return <div className="w-2 h-2 rounded-full bg-orange-500 mx-auto mt-1"></div>;
-                }
-              }
-            }}
-          />
-        </div>
-        <div className="ml-4 flex-1 border border-gray-300 rounded-md p-4">
-          {selectedDateDetails ? (
-            <div>
-              <button
-                title="clear"
-                onClick={() => setSelectedDateDetails(undefined)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
-              {Object.entries(selectedDateDetails).map(([key, value]) => (
-                <div key={key} className="mb-2">
-                  <span className="font-semibold">{key}: </span>
-                  <span>{value instanceof Date ? value.toLocaleDateString() : JSON.stringify(value)}</span>
-                </div>
-              ))}
-            </div>
-          ) : 'no details selected'}
-        </div>
+            }
+          }}
+        />
+        {selectedDateDetails ? (
+          <div className="w-1/3">
+            <button
+              title="clear"
+              onClick={() => setSelectedDateDetails(undefined)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+            {Object.entries(selectedDateDetails).map(([key, value]) => (
+              <div key={key} className="mb-2">
+                <span className="font-semibold">{key}: </span>
+                <span>{value instanceof Date ? value.toLocaleDateString() : JSON.stringify(value)}</span>
+              </div>
+            ))}
+          </div>
+        ) : 'no details selected'}
       </div>
     </div>
   );
