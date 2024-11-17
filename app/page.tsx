@@ -1,11 +1,12 @@
 "use client";
+import 'react-calendar/dist/Calendar.css';
 import { useEffect, useState } from "react";
 import Calendar from 'react-calendar';
 import RangeControls from "@/lib/components/RangeControls";
 import YearSelector from "@/lib/components/YearSelector";
 import { type DayPrediction } from "@/lib/types";
-import 'react-calendar/dist/Calendar.css';
 import NavButton from "@/lib/components/NavButton";
+import { handleFetch } from '@/lib/fetchUtil';
 
 const CURR_YEAR = new Date().getFullYear();
 
@@ -21,14 +22,9 @@ const handleImportStationData = (importYearRange: [number, number], stationIdToI
 
   if (stationIdToImport) {
     console.log('Importing station data for stationId: ', stationIdToImport);
-    fetch(`/api/import?startYear=${startYear}&endYear=${endYear}&stationId=${stationIdToImport}`)
-    .then(async response => {
-      if (response.ok) {
-        alert(`Successfully imported data for station ID ${stationIdToImport} for year range ${startYear}-${endYear}`);
-      } else {
-        const errorBody = await response.json();
-        throw new Error(`${response.statusText}: ${errorBody.error}`);
-      }
+    handleFetch(`/api/import?startYear=${startYear}&endYear=${endYear}&stationId=${stationIdToImport}`)
+    .then(() => {
+      alert(`Successfully imported data for station ID ${stationIdToImport} for year range ${startYear}-${endYear}`);
     })
     .catch(e => {
       alert(`Error importing data for station ID ${stationIdToImport} for year range ${startYear}-${endYear}: ${e}`);
@@ -46,10 +42,14 @@ function debounce(fn: (e: any) => void, ms: number = 500) {
 }
 
 async function getDayPredictionsInRange(startDate: Date, endDate: Date, stationIds: string[], percentile: number): Promise<DayPrediction[]> {
-  // TODO what timezone does noaa use for dates?
-  const response = await fetch(`/api?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}&stationIds=${stationIds.join(',')}&percentile=${percentile/100}`);
-  const data = await response.json();
-  return data.data.map((d: DayPrediction) => ({...d, date: new Date(d.date)}));
+  try {
+    const data = await handleFetch<{ data: DayPrediction[] }>(`/api?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}&stationIds=${stationIds.join(',')}&percentile=${percentile/100}`);
+    return data.data.map((d: DayPrediction) => ({...d, date: new Date(d.date)}));
+  } catch (e) {
+    const message = `Failed to get data for ${stationIds.join(', ')}`;
+    console.error(message, e);
+    return [];
+  }
 }
 
 function getDateKey(date: Date): string {

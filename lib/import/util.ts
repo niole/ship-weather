@@ -3,39 +3,9 @@ import { createGunzip } from 'node:zlib';
 import { createInterface } from 'node:readline';
 import { type WeatherSensorSample } from '@prisma/client';
 import { prisma } from '@/lib/prediction/client';
+import { handleFetch } from '@/lib/fetchUtil';
 
 const DEFAULT_STATION_ID = '41002';
-
-export function handleFetch<R>(url: string, metadata: any = undefined, isJson: boolean = true, isText: boolean = false, raw: boolean = false): Promise<R> {
-
-  return fetch(url, metadata)
-  .then(response => {
-    let body;
-    if (raw) {
-      body = response.body;
-    }
-    if (isText) {
-      body =response.text();
-    }
-    if (isJson) {
-      body = response.json();
-    }
-
-    if (response.ok) {
-      return body;
-    } else {
-      let errorMsg;
-      if (raw || isText) {
-        errorMsg = response.text();
-      }
-      if (isJson) {
-        errorMsg = body.error;
-      }
-
-      throw new Error(`${response.statusText}: ${errorMsg}`);
-    }
-  });
-}
 
 async function* processGzFile(filepath: string): AsyncGenerator<string> {
   const fileStream = fs.createReadStream(filepath);
