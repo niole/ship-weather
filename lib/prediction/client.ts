@@ -179,7 +179,7 @@ export async function getDayPredictionsInRange(startDate: Date, endDate: Date, s
         waveHeight,
         wavePeriod,
         date: dayPredictions[0].date,
-        rawData: dayPredictions.map(p => p.rawData ? p.rawData[0] : null).filter(x => x !== null),
+        //rawData: dayPredictions.map(p => p.rawData ? p.rawData[0] : null).filter(x => x !== null),
       };
     });
 
