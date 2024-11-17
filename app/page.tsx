@@ -1,6 +1,6 @@
 "use client";
 import 'react-calendar/dist/Calendar.css';
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Calendar from 'react-calendar';
 import RangeControls from "@/lib/components/RangeControls";
 import YearSelector from "@/lib/components/YearSelector";
@@ -13,24 +13,6 @@ const CURR_YEAR = new Date().getFullYear();
 const WHT_UB = 20;
 const WPD_UB = 1100;
 
-const handleImportStationData = (importYearRange: [number, number], stationIdToImport?: string) => () => {
-  const [startYear, endYear] = importYearRange;
-  if (endYear < startYear) {
-    alert('Can\'t complete import. End year must be greater than start year');
-    return;
-  }
-
-  if (stationIdToImport) {
-    console.log('Importing station data for stationId: ', stationIdToImport);
-    handleFetch(`/api/import?startYear=${startYear}&endYear=${endYear}&stationId=${stationIdToImport}`)
-    .then(() => {
-      alert(`Successfully imported data for station ID ${stationIdToImport} for year range ${startYear}-${endYear}`);
-    })
-    .catch(e => {
-      alert(`Error importing data for station ID ${stationIdToImport} for year range ${startYear}-${endYear}: ${e}`);
-    });
-  }
-}
 
 
 function debounce(fn: (e: any) => void, ms: number = 500) {
@@ -163,10 +145,13 @@ export default function Home() {
   const [calendarView, setCalendarView] = useState<{ view: string, activeStartDate: Date }>({view: 'month', activeStartDate: new Date()});
   const [stationIds, setStationIds] = useState<string[]>([]);
   const [stationIdToImport, setImportStationId] = useState<string | undefined>();
-  const [importYearRange, setImportYearRange] = useState<[number, number]>([CURR_YEAR, CURR_YEAR]);
+  const [importYearRange, setImportYearRange] = useState<[number, number]>([CURR_YEAR-1, CURR_YEAR]);
   const [selectedDateDetails, setSelectedDateDetails] = useState<PredictionWithScore | undefined>();
   const [activeTab, setActiveTab] = useState<'filters' | 'import'>('filters');
   const [percentileRange, setPercentileRange] = useState<[number, number]>([0, 95]);
+  const [isImporting, setIsImporting] = useState(false);
+  const importAbortControllerRef = useRef<AbortController>();
+
   useEffect(() => {
     fetchPredictions(calendarView.view, calendarView.activeStartDate, stationIds, percentileRange[1])
     .then(p => {
@@ -177,6 +162,44 @@ export default function Home() {
       console.error('Error fetching predictions while updating calendar view', e);
     });
   }, [calendarView, stationIds, percentileRange]);
+
+  const handleImportStationData = (importYearRange: [number, number], stationIdToImport?: string) => () => {
+    const [startYear, endYear] = importYearRange;
+    if (endYear <= startYear) {
+      alert('Can\'t complete import. End year must be greater than start year');
+      return;
+    }
+
+    if (isImporting) {
+      const shouldCancel = confirm('Import already in progress. Cancel?');
+      if (shouldCancel) {
+        importAbortControllerRef.current?.abort('User cancelled import');
+        setIsImporting(false);
+        return;
+      }
+    }
+
+    if (stationIdToImport) {
+      setIsImporting(true);
+
+      importAbortControllerRef.current = new AbortController();
+
+      console.log('Importing station data for stationId: ', stationIdToImport);
+
+      handleFetch(`/api/import?startYear=${startYear}&endYear=${endYear}&stationId=${stationIdToImport}`, {
+        signal: importAbortControllerRef.current?.signal,
+      })
+      .then(() => {
+        alert(`Successfully imported data for station ID ${stationIdToImport} for year range ${startYear}-${endYear}`);
+      })
+      .catch(e => {
+        alert(`Error importing data for station ID ${stationIdToImport} for year range ${startYear}-${endYear}: ${e}`);
+      })
+      .finally(() => {
+        setIsImporting(false);
+      });
+    }
+  }
 
   useEffect(() => {
     setDayPredictionsMap(makePredictionMap(predictions, waveHeightRange, wavePeriodRange));
@@ -214,7 +237,6 @@ export default function Home() {
           onChange={setStationIdHandler}
         />
       </div>
-      {predictions.length === 0 && <div className="text-orange-500">No data found. Pick another date range or station.</div>}
     </>
   );
 
@@ -239,12 +261,14 @@ export default function Home() {
           placeholder="Enter station ID"
           onChange={e => setImportStationId(e.target.value)}
         />
-        <input
-          className="border border-gray-300 rounded-md p-1"
-          type="submit"
-          value="Import"
+        <button
+          className="border border-gray-300 rounded-md p-1 min-w-[80px] disabled:opacity-50"
           onClick={handleImportStationData(importYearRange, stationIdToImport)}
-        />
+        >
+          {isImporting ? (
+            <span className="inline-block animate-spin">⟳</span>
+          ) : 'Import'}
+        </button>
       </div>
     </>
   );
@@ -256,11 +280,18 @@ export default function Home() {
           <NavButton tabKey="filters" activeTab={activeTab} setActiveTab={() => setActiveTab('filters')}>Filters</NavButton>
           <NavButton tabKey="import" activeTab={activeTab} setActiveTab={() => setActiveTab('import')}>Import Data</NavButton>
         </div>
-        <div className="ml-auto border border-gray-300 rounded-md p-1 mb-1">
-          <a className="block text-blue-500" href="https://www.ndbc.noaa.gov" target="_blank">National Data Buoy Center Station Map</a>
+        <div className="ml-auto">
+          <a 
+            className="block bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors" 
+            href="https://www.ndbc.noaa.gov" 
+            target="_blank"
+          >
+            National Data Buoy Center Station Map
+          </a>
         </div>
       </nav>
       <div className="flex mb-8 space-x-8">{activeTab === 'filters' ? filterTab : importTab}</div>
+      <div className="text-orange-500 text-center pb-4">{predictions.length === 0 ? "No data found. Pick another date range or station." : ""}</div>
       <div className="flex">
         <div className="flex-2">
           <Calendar
