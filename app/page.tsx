@@ -257,7 +257,7 @@ export default function Home() {
           <NavButton tabKey="import" activeTab={activeTab} setActiveTab={() => setActiveTab('import')}>Import Data</NavButton>
         </div>
         <div className="ml-auto border border-gray-300 rounded-md p-1 mb-1">
-          <a className="block text-blue-500" href="https://www.ndbc.noaa.gov/obs.shtml" target="_blank">National Data Buoy Center Station Map</a>
+          <a className="block text-blue-500" href="https://www.ndbc.noaa.gov" target="_blank">National Data Buoy Center Station Map</a>
         </div>
       </nav>
       <div className="flex mb-8 space-x-8">{activeTab === 'filters' ? filterTab : importTab}</div>

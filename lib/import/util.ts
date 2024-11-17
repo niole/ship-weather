@@ -1,135 +1,211 @@
 import fs from 'node:fs';
+import { createGunzip } from 'node:zlib';
+import { createInterface } from 'node:readline';
 import { type WeatherSensorSample } from '@prisma/client';
 import { prisma } from '@/lib/prediction/client';
 
 const DEFAULT_STATION_ID = '41002';
 
-// https://www.ndbc.noaa.gov/historical_data.shtml for 41002 weather station
+export function handleFetch<R>(url: string, metadata: any = undefined, isJson: boolean = true, isText: boolean = false, raw: boolean = false): Promise<R> {
 
-async function getNoaaFile(year: number, buoyStationId: string = DEFAULT_STATION_ID): Promise<string> {
-  const fn = `${buoyStationId}h${year}.txt`;
-  return fetch(`https://www.ndbc.noaa.gov/view_text_file.php?filename=${fn}.gz&dir=data/historical/stdmet/`)
-    .then(response => response.text())
-    .catch(err => {
-      console.error('Failed to fetch NOAA file for file: ', fn, err);
-      return '';
-    })
-}
-
-function parseNoaaFile(stationId: string, csvString: string): WeatherSensorSample[] {
-  const rows = csvString.trim().split('\n').map(r => r.trim());
-  if (rows.length === 0) {
-    return [];
-  }
-
-  const headers = rows[0].split(' ');
-
-  // check to see if first row is headers
-  if (!Number.isNaN(Number(headers[0]))) {
-    console.error('Can\'t parse this csv because there are no headers. ', headers[0], ' should be a string');
-    return [];
-  }
-
-  // maps header name to index
-  const headerMap = Object.fromEntries(headers.map(h => h.trim()).map((h, i) => [h, i]));
-
-  return rows.slice(2).map(r => {
-    const items = r.split(' ').map(n => {
-      const parsed =Number(n.trim())
-      if (isNaN(parsed)) {
-        return null;
-      }
-      return parsed
-  });
-    const hours = items[headerMap['hh']] ?? 0;
-    const minutes = items[headerMap['mm']] ?? 0;
-
-    const date = new Date(
-      items[headerMap['#YY']]!,
-      items[headerMap['MM']]!,
-      items[headerMap['DD']]!,
-      hours,
-      minutes,
-      0
-    );
-
-    if (date.getFullYear() === 2025 ) {
-      console.log(r);
-      throw new Error('A data was found for 2025');
+  return fetch(url, metadata)
+  .then(response => {
+    let body;
+    if (raw) {
+      body = response.body;
+    }
+    if (isText) {
+      body =response.text();
+    }
+    if (isJson) {
+      body = response.json();
     }
 
-    // optional values
-    const windSpeedMs = items[headerMap['WSPD']];
-    const airTemperatureC = items[headerMap['ATMP']];
-    const windDirectionDegrees = items[headerMap['WDIR']];
-    const gustSpeedMs = items[headerMap['GST']];
-    const waveHeightM = items[headerMap['WVHT']];
-    const dominantWavePeriodS = items[headerMap['DPD']];
-    const averageWavePeriodS = items[headerMap['APD']];
-    const dominantPeriodWaveDirectionDegrees = items[headerMap['MWD']];
-    const airPressureHPa = items[headerMap['PRES']];
-    const waterTemperatureC = items[headerMap['WTMP']];
-    const dewPointC = items[headerMap['DEWP']];
-    const visibilityNm = items[headerMap['VIS']];
-    const tideHeightFt = items[headerMap['TIDE']];    
+    if (response.ok) {
+      return body;
+    } else {
+      let errorMsg;
+      if (raw || isText) {
+        errorMsg = response.text();
+      }
+      if (isJson) {
+        errorMsg = body.error;
+      }
 
-    return {
-        date,
-        stationId,
-        windSpeedMs,
-        airTemperatureC,
-        windDirectionDegrees,
-        gustSpeedMs,
-        waveHeightM,
-        dominantWavePeriodS,
-        averageWavePeriodS,
-        dominantPeriodWaveDirectionDegrees,
-        airPressureHPa,
-        waterTemperatureC,
-        dewPointC,
-        visibilityNm,
-        tideHeightFt,    
-    };
+      throw new Error(`${response.statusText}: ${errorMsg}`);
+    }
   });
+}
+
+async function* processGzFile(filepath: string): AsyncGenerator<string> {
+  const fileStream = fs.createReadStream(filepath);
+  const unzipStream = createGunzip();
+  const rl = createInterface({
+    input: fileStream.pipe(unzipStream),
+    crlfDelay: Infinity
+  });
+
+  for await (const line of rl) {
+    yield line;
+  }
+}
+
+// https://www.ndbc.noaa.gov/historical_data.shtml for 41002 weather station
+// returns file path
+async function downloadNoaaFile(year: number, buoyStationId: string = DEFAULT_STATION_ID): Promise<string> {
+  const compressedFn = `${buoyStationId}h${year}.txt.gz`;
+  const compressedUrl = `https://www.ndbc.noaa.gov/data/historical/stdmet/${compressedFn}`;
+
+  return handleFetch(compressedUrl, {
+    "headers": {
+      "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    },
+  }, false, false, true)
+  .then(async body => {
+    if (body) {
+      // Create or truncate the file before writing chunks
+      const path = `/tmp/${compressedFn}`;
+      try {
+        fs.writeFileSync(path, '');
+        
+        for await (const chunk of body) {
+          // Append each chunk to the file
+          fs.appendFileSync(path, chunk);
+        }
+        return path;
+      } catch (e) {
+        console.error('Error writing file to path: ', path, '. Removing temp file: ', e);
+        fs.unlinkSync(path);
+      }
+    }
+    throw new Error(`No file found for year: ${year}, for station: ${buoyStationId}`);
+  });
+}
+
+async function* parseNoaaFile(stationId: string, path: string): AsyncGenerator<WeatherSensorSample> {
+  let index = 0;
+  let headers: string[] = [];
+  // maps header name to index
+  let headerMap: Record<string, number> = {};
+  for await (const line of processGzFile(path)) {
+    if (index === 0) {
+      headers = line.split(' ').map(h => h.trim()).filter(h => h !== '');
+      // check to see if first row is headers
+      if (!Number.isNaN(Number(headers[0]))) {
+        console.error('Can\'t parse this csv because there are no headers. ', headers[0], ' should be a string');
+        return;
+      }
+
+      headerMap = Object.fromEntries(headers.map(h => h.trim()).map((h, i) => [h, i]));
+    }
+
+    // skip the second row
+    if (index > 1) {
+      const items = line.split(' ').map((n: string) => {
+        const parsed = Number(n.trim())
+        if (isNaN(parsed)) {
+          return null;
+        }
+        return parsed
+      });
+
+      const hours = items[headerMap['hh']] ?? 0;
+      const minutes = items[headerMap['mm']] ?? 0;
+
+      const date = new Date(
+        items[headerMap['#YY']]!,
+        items[headerMap['MM']]! - 1,
+        items[headerMap['DD']]!,
+        hours,
+        minutes,
+        0
+      );
+
+      // optional values
+      const windSpeedMs = items[headerMap['WSPD']];
+      const airTemperatureC = items[headerMap['ATMP']];
+      const windDirectionDegrees = items[headerMap['WDIR']];
+      const gustSpeedMs = items[headerMap['GST']];
+      const waveHeightM = items[headerMap['WVHT']];
+      const dominantWavePeriodS = items[headerMap['DPD']];
+      const averageWavePeriodS = items[headerMap['APD']];
+      const dominantPeriodWaveDirectionDegrees = items[headerMap['MWD']];
+      const airPressureHPa = items[headerMap['PRES']];
+      const waterTemperatureC = items[headerMap['WTMP']];
+      const dewPointC = items[headerMap['DEWP']];
+      const visibilityNm = items[headerMap['VIS']];
+      const tideHeightFt = items[headerMap['TIDE']];    
+
+      const sample: WeatherSensorSample = {
+          date,
+          stationId,
+          windSpeedMs,
+          airTemperatureC,
+          windDirectionDegrees,
+          gustSpeedMs,
+          waveHeightM,
+          dominantWavePeriodS,
+          averageWavePeriodS,
+          dominantPeriodWaveDirectionDegrees,
+          airPressureHPa,
+          waterTemperatureC,
+          dewPointC,
+          visibilityNm,
+          tideHeightFt,    
+      };
+      yield sample;
+    }
+
+    index++;
+  }
 }
 
 export async function saveDataDb(yearStart: number, yearEnd: number | null = null, buoyStationId: string = DEFAULT_STATION_ID) {
   try {
     for (let year = yearStart; year <= (yearEnd ?? yearStart + 1); year++) {
-      const file = await getNoaaFile(year, buoyStationId)
-      const samples = parseNoaaFile(buoyStationId, file)
-
-      // TODO do bulk calls someday
-      await prisma.$transaction(
-        samples.map((sample) =>
-          prisma.weatherSensorSample.upsert({
-            where: {
-              date_stationId: {
-                date: sample.date,
-                stationId: sample.stationId,
+      let file = '';
+      try {
+        file = await downloadNoaaFile(year, buoyStationId)
+        for await (const sample of parseNoaaFile(buoyStationId, file)) {
+          try {
+            await prisma.weatherSensorSample.upsert({
+              where: {
+                date_stationId: {
+                  date: sample.date,
+                  stationId: sample.stationId,
+                },
               },
-            },
-            create: sample,
-            update: sample,
-          })
-        )
-      );
+              create: sample,
+              update: sample,
+            });
+          } catch (e) {
+            console.error('Error adding data for sample: ', sample.date, ', for station: ', buoyStationId, e);
+          }
+        }
+      } catch (e) {
+        console.error('Error adding data for year: ', year, ', for station: ', buoyStationId, e);
+      } finally {
+        if (file) {
+          // remove the temp file
+          fs.unlinkSync(file);
+        }
+      }
     }
   } catch (e) {
     console.error('Error saving data to db: ', e);
   }
 }
 
-export function saveDataFile(year: number, buoyStationId: string = DEFAULT_STATION_ID, path: string = '/Users/niole.nelson/noaa_test/ship-weather/') {
-  const fn = `${buoyStationId}h${year}.txt`;
-  getNoaaFile(year, buoyStationId)
-    .then(content => {
-        fs.writeFile(`${path}${fn}`, content, (err: any) => {
-            if (err) {
-                    console.error(err);
-            } else {
-                console.log('wrote file: ', fn);
-            }
-        })
-    });
-}
+//export function saveDataFile(year: number, buoyStationId: string = DEFAULT_STATION_ID, path: string = '/Users/niole.nelson/noaa_test/ship-weather/') {
+//  const fn = `${buoyStationId}h${year}.txt`;
+//  downloadNoaaFile(year, buoyStationId)
+//    .then(content => {
+//        fs.writeFile(`${path}${fn}`, content, (err: any) => {
+//            if (err) {
+//                    console.error(err);
+//            } else {
+//                console.log('wrote file: ', fn);
+//            }
+//        })
+//    });
+//}
