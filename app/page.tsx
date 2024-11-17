@@ -292,9 +292,9 @@ export default function Home() {
       </nav>
       <div className="flex mb-8 space-x-8">{activeTab === 'filters' ? filterTab : importTab}</div>
       <div className="text-orange-500 text-center pb-4">{predictions.length === 0 ? "No data found. Pick another date range or station." : ""}</div>
-      <div className="flex">
+      <div>
         <Calendar
-          className="!w-2/3"
+          className="!w-full md:!w-2/3 lg:!w-2/3 inline-block align-top"
           onClickDay={date => {
             const key = getDateKey(date);
             if (selectedDateDetails && key === getDateKey(selectedDateDetails!.date)) {
@@ -329,7 +329,7 @@ export default function Home() {
           }}
         />
         {selectedDateDetails ? (
-          <div className="w-1/3">
+          <div className="w-full md:w-1/4 lg:w-1/4 inline-block text-wrap break-all">
             <button
               title="clear"
               onClick={() => setSelectedDateDetails(undefined)}
@@ -340,11 +340,11 @@ export default function Home() {
             {Object.entries(selectedDateDetails).map(([key, value]) => (
               <div key={key} className="mb-2">
                 <span className="font-semibold">{key}: </span>
-                <span>{value instanceof Date ? value.toLocaleDateString() : JSON.stringify(value)}</span>
+                <span className="text-wrap">{value instanceof Date ? value.toLocaleDateString() : JSON.stringify(value)}</span>
               </div>
             ))}
           </div>
-        ) : 'no details selected'}
+        ) : <span className="ml-4">no details selected</span>}
       </div>
     </div>
   );
